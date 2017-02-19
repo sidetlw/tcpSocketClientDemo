@@ -7,3 +7,5 @@
 2.线程使用runloop技术使其在后台始终保持不退出，就像AFNetworking的单例一样
 
 3.使用timer模拟服务器接收消息，这是一个demo并未处理各种异常
+
+![][https://github.com/sidetlw/tcpSocketClientDemo/blob/master/CSSocketDemo/shot/Untitled.gif]
