@@ -8,4 +8,4 @@
 
 3.使用timer模拟服务器接收消息，这是一个demo并未处理各种异常
 
-![][https://github.com/sidetlw/tcpSocketClientDemo/blob/master/CSSocketDemo/shot/Untitled.gif]
+![](https://github.com/sidetlw/tcpSocketClientDemo/blob/master/CSSocketDemo/shot/Untitled.gif)
