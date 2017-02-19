@@ -11,10 +11,16 @@
 #import <arpa/inet.h>
 
 @interface ViewController ()
+{
+    NSTimer* timer ;
+}
 @property (weak, nonatomic) IBOutlet UITextField *hostText;
 @property (weak, nonatomic) IBOutlet UITextField *portText;
 @property (weak, nonatomic) IBOutlet UITextField *messageText;
 @property (weak, nonatomic) IBOutlet UILabel *recvLabel;
+
+@property (strong,nonatomic) NSThread* myThread;
+
 
 ///  client Socket
 @property (nonatomic, assign) int clientSocket;
@@ -26,6 +32,12 @@
     if ([self connection:self.hostText.text port:self.portText.text.intValue]) {
         self.recvLabel.text = @"connection success";
         NSLog( @"connection success");
+        
+        timer = [NSTimer scheduledTimerWithTimeInterval:1
+                                                repeats:YES
+                                                  block:^(NSTimer * _Nonnull timer) {
+                                                      [self performSelector:@selector(toReceve) onThread:self.myThread withObject:nil waitUntilDone:NO modes:@[NSDefaultRunLoopMode,NSRunLoopCommonModes]];
+                                                  }];
     } else {
         self.recvLabel.text = @"connection error";
         NSLog( @"connection error");
@@ -37,7 +49,7 @@
         [self reminder];
         return;
     }
-    self.recvLabel.text = [self sendAndRecv:self.messageText.text];
+   /* self.recvLabel.text = */[self sendAndRecv:self.messageText.text];
 }
 
 - (void)reminder {
@@ -49,13 +61,17 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+//    self.queue = dispatch_queue_create("myqueue", DISPATCH_QUEUE_CONCURRENT);
     // Do any additional setup after loading the view, typically from a nib.
+//    first = NO;
+    
+    self.myThread = [self networkRequestThread];
 }
 
 
 // MARK: Socket
 - (BOOL)connection:(NSString *)hostText port:(int)port {
-    // socket
+    //1.创建 socket
     /**
      参数
      domain:    协议域，AF_INET（IPV4的网络开发）
@@ -73,7 +89,7 @@
         NSLog(@"Socket Create error");
     }
     
-    //connection 连接到“服务器”
+    //2.connection 连接到“服务器”
     /**
      参数
      1> 客户端socket
@@ -112,7 +128,7 @@
      */
     
     ssize_t sendLen = send(self.clientSocket, message.UTF8String, strlen(message.UTF8String), 0);
-    NSLog(@"%ld", sendLen);
+//    NSLog(@"%ld", sendLen);
     
     // recv 接收 - 几乎所有的网络访问，都是有来有往的
     /**
@@ -124,20 +140,60 @@
      返回值 接收到的数据长度
      */
     // unsigned char，字符串的数组
-    uint8_t buffer[1024];
+
+    return nil;
+}
+
+///  断开连接
+- (void)disConnection {
+    close(self.clientSocket);
+}
+
+- (IBAction)closeSocket:(id)sender {
+    if (timer.isValid) {
+        [timer invalidate];
+        timer = nil;
+    }
     
+    if (!self.myThread.isCancelled) {
+        [self.myThread cancel];
+        _myThread = nil;
+    }
+    [self disConnection];
+}
+
+- (NSThread *)networkRequestThread {
+    static NSThread *_networkRequestThread = nil;
+    static dispatch_once_t oncePredicate;
+    dispatch_once(&oncePredicate, ^{
+        _networkRequestThread = [[NSThread alloc] initWithTarget:self selector:@selector(networkRequestThreadEntryPoint:) object:nil];
+        [_networkRequestThread start];
+    });
+    return _networkRequestThread;
+}
+
+- (void)networkRequestThreadEntryPoint:(id)__unused object {
+    @autoreleasepool {
+        [[NSThread currentThread] setName:@"tlwThread"];
+        NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
+        [runLoop addPort:[NSMachPort port] forMode:NSDefaultRunLoopMode];
+        [runLoop run];
+    }
+}
+
+- (void)toReceve
+{
+    uint8_t buffer[1024];
     ssize_t recvLen = recv(self.clientSocket, buffer, sizeof(buffer), 0);
     
     // 从buffer中读取服务器发回的数据
     // 按照服务器返回的长度，从 buffer 中，读取二进制数据，建立 NSData 对象
     NSData *data = [NSData dataWithBytes:buffer length:recvLen];
     NSString *str = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    return str;
-}
-
-///  断开连接
-- (void)disConnection {
-    close(self.clientSocket);
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        self.recvLabel.text = str;
+    });
 }
 
 @end
